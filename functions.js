@@ -1,5 +1,5 @@
-/* functions.js - Advanced Multi-Part Calculations */
-import { db, storage } from './firebase.js';
+/* functions.js - Advanced Multi-Part Calculations & Secure Admin Access */
+import { db, storage, auth } from './firebase.js';
 import { 
   collection, 
   addDoc, 
@@ -17,13 +17,36 @@ import {
   uploadBytes, 
   getDownloadURL 
 } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-storage.js";
+import { 
+  signInWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/11.4.0/firebase-auth.js";
+
+// AUTH OPERATIONS
+export async function loginAdmin(email, password) {
+    try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        return userCredential.user;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export async function logoutAdmin() {
+    await signOut(auth);
+}
+
+export function subscribeToAuth(callback) {
+    return onAuthStateChanged(auth, callback);
+}
 
 // Mapping Rule
 function getGrade(marks) {
   if (marks >= 75) return 'A';
   if (marks >= 65) return 'B';
   if (marks >= 55) return 'C';
-  if (marks >= 45) return 'S';
+  if (marks >= 40) return 'S';
   return 'W';
 }
 
@@ -155,6 +178,14 @@ export async function releaseAllAndCalculate() {
     }
   }
   return updateCount;
+}
+
+export async function deleteResult(docId) {
+  await deleteDoc(doc(db, "results", docId));
+}
+
+export async function unpublishResult(docId) {
+  await updateDoc(doc(db, "results", docId), { isReleased: false });
 }
 
 export async function getStudentResults(studentId) {

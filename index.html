@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MathHub | Student Portal</title>
+  <title>Nethsara Rahiru | Student Hub</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -32,29 +32,14 @@
     <p style="margin-top: 1.5rem; font-weight: 700; color: var(--text-muted);">Syncing marks...</p>
   </div>
 
-  <!-- Result Reveal Screen (Expanded for Parts) -->
+  <!-- Result Reveal Screen -->
   <div id="result-reveal-screen" class="overlay-full">
-    <div class="reveal-card" style="padding: 2.5rem; max-width: 90%; width: 540px; margin: 0 auto; text-align:center;">
+    <div class="reveal-card" style="padding: 2.5rem; max-width: 90%; width: 500px; margin: 0 auto; text-align:center;">
       <h3 id="rev-exam-name" style="color: var(--primary); font-size: 1.35rem; margin-bottom: 2rem;">Exam Title</h3>
-
-      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2.5rem;">
-        <div class="card" style="padding: 1.25rem; margin:0; border-color: rgba(106, 215, 255, 0.2);">
-          <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 800; margin-bottom: 8px;">PAPER 1 (A+B)
-          </div>
-          <div id="rev-p1-marks" style="font-size: 1.8rem; font-weight: 800; color: white;">--</div>
-        </div>
-        <div class="card" style="padding: 1.25rem; margin:0; border-color: rgba(245, 158, 11, 0.2);">
-          <div style="font-size: 0.6rem; color: var(--text-muted); font-weight: 800; margin-bottom: 8px;">PAPER 2 (A+B)
-          </div>
-          <div id="rev-p2-marks" style="font-size: 1.8rem; font-weight: 800; color: white;">--</div>
-        </div>
-      </div>
-
-      <div class="marks-counter" id="rev-marks" style="font-size: 4.8rem; margin-bottom: 0.2rem;">0.0</div>
+      <div class="marks-counter" id="rev-marks" style="font-size: 5rem; margin-bottom: 0.2rem;">0.0</div>
       <p
-        style="color: var(--text-muted); font-weight: 800; font-size: 0.7rem; letter-spacing: 0.15em; margin-bottom: 3rem;">
-        FINAL AGGREGATE</p>
-
+        style="color: var(--text-muted); font-weight: 800; font-size: 0.75rem; letter-spacing: 0.15em; margin-bottom: 3.5rem;">
+        PAPER OUTCOME</p>
       <div style="display:flex; justify-content:center; gap: 3rem; margin-bottom: 3rem;">
         <div style="text-align:center;">
           <div
@@ -69,22 +54,19 @@
           <div id="rev-rank" style="font-size: 2.6rem; font-weight: 800; color: var(--accent);">#--</div>
         </div>
       </div>
-
       <div
         style="display:flex; justify-content:space-between; align-items:center; background: rgba(255,255,255,0.02); padding: 1.2rem; border-radius: 18px; border: 1px solid var(--card-border);">
         <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 700;">Class Average Score:</span>
         <strong id="rev-avg" style="color: white; font-size: 1.1rem;">--%</strong>
       </div>
-
-      <button id="close-reveal-btn" style="margin-top: 2.5rem; width: 100%; height: 65px; font-size: 0.9rem;">
-        Enter Dashboard
-      </button>
+      <button id="close-reveal-btn" style="margin-top: 2.5rem; width: 100%; height: 65px; font-size: 0.9rem;">Enter
+        Dashboard</button>
     </div>
   </div>
 
   <!-- Navigation -->
   <nav>
-    <div class="logo">MathHub</div>
+    <div class="logo">Nethsara Rahiru</div>
     <div class="nav-links">
       <a href="index.html" class="active">Student Hub</a>
       <a href="admin.html">Admin</a>
@@ -124,14 +106,20 @@
           <h2 style="margin-bottom: 2rem;">Academic History</h2>
           <div id="results-display"></div>
         </div>
-
-        <div id="materials" style="margin-bottom: 5rem; display: none;">
+        <div id="materials" style="margin-bottom: 2rem; display: none;">
           <h2 style="margin-bottom: 2rem;">Course Library</h2>
           <div class="card" id="materials-display" style="padding: 1rem;"></div>
         </div>
       </div>
     </div>
   </div>
+
+  <footer>
+    <div class="footer-content">
+      <div class="footer-logo">Nethsara Rahiru</div>
+      <div class="footer-powered">Powered by <span>Creatives</span></div>
+    </div>
+  </footer>
 
   <script src="app.js" type="module"></script>
   <script>lucide.createIcons();</script>

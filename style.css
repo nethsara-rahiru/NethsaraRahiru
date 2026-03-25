@@ -24,6 +24,11 @@
   outline: none;
 }
 
+html {
+  background: var(--bg-dark); /* Prevent white flash or leaks */
+  overscroll-behavior: none; /* Disable bouncy scrolls */
+}
+
 body {
   background: var(--bg-gradient);
   background-attachment: fixed;
@@ -110,11 +115,21 @@ nav {
   color: white;
 }
 
+/* TAB SYSTEM */
+.tab-content {
+  display: none;
+  width: 100%;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.tab-content.active {
+  display: block;
+}
+
 /* SIDEBAR & ADMIN LAYOUT */
 .admin-wrapper {
   display: flex;
   width: 100%;
-  min-height: 100vh;
   position: relative;
 }
 
@@ -133,7 +148,7 @@ nav {
 .admin-main {
   flex-grow: 1;
   margin-left: var(--sidebar-width);
-  padding: 3rem;
+  padding: 3rem 3rem 0 3rem;
   width: calc(100vw - var(--sidebar-width));
   transition: 0.3s;
 }
@@ -355,6 +370,10 @@ nav {
   box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
   position: relative;
   overflow: visible;
+}
+
+.card:last-child {
+  margin-bottom: 0;
 }
 
 .card::before {
@@ -613,4 +632,59 @@ td {
     opacity: 0;
     transform: scale(0.9) translateY(30px);
   }
+}
+
+/* FOOTER STYLES */
+footer {
+  width: 100%;
+  padding: 3rem 1.5rem;
+  margin-top: 4rem;
+  border-top: 1px solid var(--card-border);
+  position: relative;
+  z-index: 100;
+  background: rgba(8, 51, 91, 0.4);
+}
+
+.footer-content {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.footer-logo {
+  font-family: 'Outfit';
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: white;
+  letter-spacing: -0.5px;
+}
+
+.footer-powered {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  font-family: 'Outfit';
+}
+
+.footer-powered span {
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.admin-main footer {
+  margin-top: 5rem;
+  padding: 3rem 0;
+  background: transparent;
+  border-top: 1px solid rgba(255,255,255,0.03);
+}
+
+.admin-main .footer-content {
+  max-width: none;
+  padding: 0;
 }
