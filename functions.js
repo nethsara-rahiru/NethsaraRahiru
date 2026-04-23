@@ -80,6 +80,9 @@ export async function getExams() {
 export async function deleteExam(docId) {
   await deleteDoc(doc(db, "exams", docId));
 }
+export async function updateExam(docId, updateData) {
+  await updateDoc(doc(db, "exams", docId), updateData);
+}
 
 // STUDENTS
 export async function addStudent(studentData) {
