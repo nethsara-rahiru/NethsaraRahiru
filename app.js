@@ -96,6 +96,31 @@ const initAdmin = () => {
     document.getElementById('toggle-add-form')?.addEventListener('click', () => { const f = document.getElementById('add-student-form'); if(f) f.style.display = window.getComputedStyle(f).display === 'none' ? 'block' : 'none'; });
     document.getElementById('cancel-student-add')?.addEventListener('click', () => { const f = document.getElementById('add-student-form'); if(f) f.style.display = 'none'; });
 
+    document.getElementById('add-student-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const studentId = document.getElementById('student-id').value.trim();
+        const name = document.getElementById('student-name').value;
+        const studentClass = document.getElementById('student-class').value;
+        
+        if (!studentId || !name || !studentClass) { alert('All fields are required.'); return; }
+
+        const btn = e.target.querySelector('button[type="submit"]');
+        const initialText = btn.innerText;
+        btn.disabled = true; btn.innerText = 'ENROLLING...';
+
+        try {
+            await addStudent({ studentId: studentId.toUpperCase(), name, class: studentClass });
+            e.target.reset();
+            document.getElementById('add-student-form').style.display = 'none';
+            alert('Student enrolled successfully.');
+        } catch (err) {
+            console.error('Enrollment failed:', err);
+            alert('Failed to enroll student.');
+        } finally {
+            btn.disabled = false; btn.innerText = initialText;
+        }
+    });
+
     // STUDENT REGISTRY & BATCH MAPPING
     onSnapshot(query(collection(db, "students"), orderBy("createdAt", "desc")), snapshot => {
         const tableBody = document.getElementById('student-table-body');
@@ -134,6 +159,32 @@ const initAdmin = () => {
            if (window.lastResultsSnapshot) renderGroupedRegistry(window.lastResultsSnapshot);
         }
         refreshIcons();
+    });
+
+    document.getElementById('add-exam-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const paperName = document.getElementById('exam-paper-name').value;
+        const paperPart = document.getElementById('exam-part').value;
+        const subSection = document.getElementById('exam-sub').value;
+        const date = document.getElementById('exam-date').value;
+        const structure = document.getElementById('exam-structure').value;
+        
+        if (!paperName || !date) { alert('Paper Name and Date are required.'); return; }
+
+        const btn = e.target.querySelector('button[type="submit"]');
+        const initialText = btn.innerText;
+        btn.disabled = true; btn.innerText = 'LOGGING...';
+
+        try {
+            await addExam({ paperName, paperPart, subSection, date, structure });
+            e.target.reset();
+            alert('Examination staged successfully.');
+        } catch (err) {
+            console.error('Save failed:', err);
+            alert('Failed to log examination.');
+        } finally {
+            btn.disabled = false; btn.innerText = initialText;
+        }
     });
 
     // EXAMINATIONS TRACKER
@@ -438,6 +489,31 @@ const initAdmin = () => {
             list.appendChild(d);
         });
         refreshIcons();
+    });
+
+    document.getElementById('add-material-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('mat-title').value;
+        const lesson = document.getElementById('mat-lesson').value;
+        const fileInput = document.getElementById('mat-file');
+        
+        if (!title || !lesson || !fileInput.files[0]) { alert('Title, Lesson, and a File are required.'); return; }
+
+        const btn = document.getElementById('upload-btn');
+        const initialText = btn.innerText;
+        btn.disabled = true; btn.innerText = 'UPLOADING...';
+
+        try {
+            const fileURL = await uploadMaterialFile(fileInput.files[0]);
+            await addMaterial({ title, lesson, fileURL });
+            e.target.reset();
+            alert('Material uploaded successfully.');
+        } catch (err) {
+            console.error('Upload failed:', err);
+            alert('Failed to upload material.');
+        } finally {
+            btn.disabled = false; btn.innerText = initialText;
+        }
     });
 };
 
