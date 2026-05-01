@@ -1,41 +1,14 @@
-/* app.js - Full Strategic Academic Hub */
 import { db } from './firebase.js';
-import { collection, onSnapshot, query, where, orderBy } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+import { collection, onSnapshot, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js';
 import { 
-  addStudent, deleteStudent, addResult, releaseAllAndCalculate, 
-  getStudent, getStudentResults, updateStudent, uploadMaterialFile, 
-  addMaterial, getMaterials, addExam, deleteExam, updateExam, deleteResult, unpublishResult,
+  addStudent, deleteStudent, addResult, releaseAllAndCalculate, rerankGroup,
+  uploadMaterialFile, addMaterial, addExam, deleteExam, updateExam, deleteResult, unpublishResult,
   loginAdmin, logoutAdmin, subscribeToAuth
 } from './functions.js';
+import { refreshIcons, initNavigation } from './ui.js';
 
-const refreshIcons = () => { if (window.lucide) window.lucide.createIcons(); };
 let examsList = [];
 let studentsList = [];
-let isAppInitialized = false;
-
-// Navigation Tab Engine
-const initNavigation = () => {
-    const navItems = document.querySelectorAll('.nav-item[data-tab]');
-    const tabContents = document.querySelectorAll('.tab-content');
-    if (!navItems.length) return;
-    navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const tabId = item.getAttribute('data-tab');
-            if (!tabId) return;
-            navItems.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-            tabContents.forEach(content => {
-                content.classList.remove('active');
-                if (content.id === `tab-${tabId}`) content.classList.add('active');
-            });
-            refreshIcons();
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebar-overlay');
-            if (sidebar?.classList.contains('mobile-open')) { sidebar.classList.remove('mobile-open'); overlay?.classList.remove('active'); }
-        });
-    });
-    document.getElementById('nav-to-exams')?.addEventListener('click', () => { document.querySelector('.nav-item[data-tab="exams"]')?.click(); });
-};
 
 const initAdmin = () => {
     const adminOverlay = document.getElementById('admin-login-overlay');
@@ -380,7 +353,7 @@ const initAdmin = () => {
         
         const groups = {};
         all.forEach(r => {
-            const gid = `${r.examName}_${r.paperPart}_${r.subSection}_${r.batch || 'Unassigned'}`;
+            const gid = `${r.examId || r.examName}_${r.batch || 'Unassigned'}`;
             if (!groups[gid]) groups[gid] = { gid, paper: r.examName, part: r.paperPart, sec: r.subSection, batch: r.batch || 'Unassigned', date: r.examDate || '', items: [] };
             groups[gid].items.push(r);
         });
@@ -397,6 +370,7 @@ const initAdmin = () => {
                 <td style="padding:1rem;"><span class="mini-tag">${g.batch}</span><br><small style="opacity:0.3; font-size:0.6rem; display:block; margin-top:4px;">${g.date || 'No Date'}</small></td>
                 <td style="padding:1rem;"><span class="mini-tag" style="background:rgba(16,185,129,0.1); color:var(--success); border:none;">${g.items.length} RESULTS LIVE</span></td>
                 <td style="text-align:right; padding:1rem;">
+                    <button class="group-rank-btn" data-exam="${g.items[0].examId}" data-batch="${g.batch}" style="background:rgba(106, 215, 255, 0.1); color:var(--primary); padding:0.4rem 0.8rem; border-radius:10px; font-size:0.65rem;">RANK</button>
                     <button class="group-unpub-btn" data-batch='${JSON.stringify(g.items.map(i => i.id))}' style="background:rgba(245,158,11,0.1); color:var(--accent); padding:0.4rem 0.8rem; border-radius:10px; font-size:0.65rem;">UNPUB</button>
                     <button class="group-del-btn" data-batch='${JSON.stringify(g.items.map(i => i.id))}' style="background:rgba(239,68,68,0.1); color:var(--danger); padding:0.4rem 0.8rem; border-radius:10px; font-size:0.65rem;">DELETE</button>
                 </td>
@@ -472,6 +446,13 @@ const initAdmin = () => {
         document.querySelectorAll('.group-unpub-btn').forEach(btn => btn.onclick = async (e) => { e.stopPropagation(); const ids = JSON.parse(btn.getAttribute('data-batch')); if(confirm(`Unpublish all ${ids.length} entries?`)) { for(const id of ids) await unpublishResult(id); await releaseAllAndCalculate(); } });
         document.querySelectorAll('.group-del-btn').forEach(btn => btn.onclick = async (e) => { e.stopPropagation(); const ids = JSON.parse(btn.getAttribute('data-batch')); if(confirm(`Delete all ${ids.length} results?`)) { for(const id of ids) await deleteResult(id); await releaseAllAndCalculate(); } });
         document.querySelectorAll('.del-res-btn').forEach(btn => btn.onclick = async (e) => { e.stopPropagation(); if(confirm('Delete single result?')) { await deleteResult(btn.getAttribute('data-id')); await releaseAllAndCalculate(); } });
+        document.querySelectorAll('.group-rank-btn').forEach(btn => btn.onclick = async (e) => { 
+            e.stopPropagation(); 
+            const eid = btn.getAttribute('data-exam'); const b = btn.getAttribute('data-batch');
+            btn.disabled = true; btn.innerText = '...';
+            await rerankGroup(eid, b);
+            btn.disabled = false; btn.innerText = 'RANK';
+        });
         refreshIcons();
     }
 
@@ -517,109 +498,6 @@ const initAdmin = () => {
     });
 };
 
-// Student Dashboard Logic
-const initPortal = () => {
-    const loginForm = document.getElementById('login-form'); if (!loginForm) return;
-    document.getElementById('logout-btn')?.addEventListener('click', () => { if(confirm('Exit satellite session?')) window.location.reload(); });
-    loginForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        const rawId = document.getElementById('login-id').value.trim(); if (!rawId) return;
-        const s = await getStudent(rawId.toUpperCase());
-        if (s) {
-            document.getElementById('login-section').style.display='none'; document.getElementById('dashboard-section').style.display='block';
-            document.getElementById('display-name').innerText=s.name; document.getElementById('display-class').innerText=s.studentId;
-            const hour = new Date().getHours(); const gr = document.getElementById('greeting-text'); 
-            if(hour < 12) gr.innerText="SATELLITE MORNING"; else if(hour < 18) gr.innerText="SATELLITE AFTERNOON"; else gr.innerText="SATELLITE EVENING";
-            const [rs, ms] = await Promise.all([getStudentResults(s.studentId), getMaterials()]);
-            renderResults(rs); renderResources(ms);
-            if(s.hasNewResult) setTimeout(() => { const o = document.getElementById('reveal-overlay'); o.classList.add('active'); o.onclick = async () => { o.classList.remove('active'); await executeReveal(s); }; refreshIcons(); }, 800);
-        } else alert('Unauthorized Student Reference ID.');
-    });
-};
-
-async function executeReveal(student) {
-    const overlay = document.getElementById('loading-overlay'); overlay.classList.add('active');
-    const allReleased = await getStudentResults(student.studentId);
-    if (!allReleased.length) return;
-    const latestEntry = allReleased[0];
-    
-    // Grades always calculated on 100% basis
-    const rawMarks = latestEntry.marks;
-    const percentageMarks = (latestEntry.subSection !== 'None' && latestEntry.paperPart !== 'Full Paper') ? rawMarks * 2 : rawMarks;
-    
-    // Display value depends on paper type
-    const isFullPaper = (latestEntry.paperPart === 'Full Paper' && latestEntry.subSection === 'None');
-    const finalDisplayMark = Math.round(rawMarks);
-    
-    // Dynamic Local Grade
-    const getLocalGrade = (m) => { if(m>=75) return 'A'; if(m>=65) return 'B'; if(m>=55) return 'C'; if(m>=40) return 'S'; return 'W'; };
-    const localGrade = getLocalGrade(percentageMarks);
-
-    setTimeout(() => {
-        overlay.classList.remove('active'); document.getElementById('result-reveal-screen').classList.add('active');
-        const partInfo = latestEntry.subSection !== 'None' ? `${latestEntry.paperPart} ${latestEntry.subSection}` : latestEntry.paperPart;
-        document.getElementById('rev-exam-name').innerText = `${latestEntry.examName} (${partInfo})`;
-        
-        const gradeEl = document.getElementById('rev-grade');
-        const gradeContainer = document.getElementById('rev-grade-container');
-        if (gradeEl && gradeContainer) {
-            gradeEl.innerText = localGrade;
-            gradeContainer.style.display = isFullPaper ? 'block' : 'none';
-        }
-        
-        document.getElementById('rev-rank').innerText = `#${latestEntry.rank}`;
-        document.getElementById('rev-avg').innerText = Math.round(latestEntry.classAverage) + "%";
-        
-        let v = 0; const c = document.getElementById('rev-marks'); 
-        const suffix = isFullPaper ? '%' : ' / 50';
-        const tick = () => { 
-            if (v < finalDisplayMark) { 
-                v += Math.ceil(finalDisplayMark / 40) || 1; 
-                if (v > finalDisplayMark) v = finalDisplayMark; 
-                c.innerText = Math.round(v) + suffix; 
-                requestAnimationFrame(tick); 
-            } else { 
-                c.innerText = Math.round(finalDisplayMark) + suffix; 
-            } 
-        }; 
-        tick();
-        
-        document.getElementById('close-reveal-btn').onclick = async () => { document.getElementById('result-reveal-screen').classList.remove('active'); await updateStudent(student.id, { hasNewResult: false }); };
-        refreshIcons();
-    }, 1200);
-}
-
-function renderResults(allReleased) {
-    const display = document.getElementById('results-display'); if (!display) return;
-    display.innerHTML = allReleased.length ? '' : '<p>Academic data pending release.</p>';
-    const groups = {};
-    allReleased.forEach(r => { if (!groups[r.examName]) groups[r.examName] = { final: null, parts: [] }; groups[r.examName].parts.push(r); if (r.finalAggregate) groups[r.examName].final = r; });
-    Object.values(groups).forEach(data => {
-        const primary = data.final || data.parts[0];
-        const isFullPaper = (primary.paperPart === 'Full Paper' && primary.subSection === 'None') || (primary.finalAggregate && data.parts.length > 1);
-        const displayMarksValue = primary.finalAggregate || primary.marks;
-        const displayMarks = Math.round(displayMarksValue);
-        const card = document.createElement('div'); card.className='card';
-        let segmentsHTML = '';
-        data.parts.forEach(p => {
-            let cls = 'p1a'; if (p.paperPart === 'Part 1' && p.subSection === 'Part B') cls = 'p1b'; else if (p.paperPart === 'Part 2' && p.subSection === 'Part A') cls = 'p2a'; else if (p.paperPart === 'Part 2' && p.subSection === 'Part B') cls = 'p2b';
-            segmentsHTML += `<div class="segment ${cls}" style="width: ${p.marks * 0.5}%" data-tooltip="${p.paperPart} ${p.subSection}: ${Math.round(p.marks)} / 50"></div>`;
-        });
-        card.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center;"><div><h3 style="font-size:1.15rem; margin:0; font-family:'Outfit';">${primary.examName}</h3><div class="tag-bar" style="margin-top:8px;"><span class="mini-tag">RANK #${primary.rank}</span>${isFullPaper ? `<span class="mini-tag">GRADE ${primary.grade}</span>` : ''}</div></div><div style="text-align:right;"><span class="marks-counter" style="font-size:2.8rem;">${displayMarks}${isFullPaper ? '%' : ' / 50'}</span></div></div><div class="comparison-line">${segmentsHTML}<div class="comparison-mark" style="left: ${primary.classAverage}%"></div></div><div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); font-weight:800; letter-spacing:0.5px;"><span>AGGREGATE OUTCOME</span><span>MEAN: ${Math.round(primary.classAverage)}%</span></div><div class="legend-group"><div class="legend-item"><div class="legend-color" style="background:#6ad7ff;"></div> PAPER 1 (A)</div><div class="legend-item"><div class="legend-color" style="background:#7820d0;"></div> PAPER 1 (B)</div><div class="legend-item"><div class="legend-color" style="background:#f59e0b;"></div> PAPER 2 (A)</div><div class="legend-item"><div class="legend-color" style="background:#10b981;"></div> PAPER 2 (B)</div></div>`;
-        display.appendChild(card);
-    });
-    refreshIcons();
-}
-
-function renderResources(mats) {
-    const d = document.getElementById('materials-display'); if (!d) return; d.innerHTML = '';
-    mats.forEach(m => {
-        const r = document.createElement('div'); r.style.padding = '1rem 0'; r.style.display = 'flex'; r.style.justifyContent = 'space-between'; r.style.borderBottom='1px solid var(--card-border)';
-        r.innerHTML = `<div><strong style="font-size:0.9rem;">${m.title}</strong><p style="opacity:0.6; font-size:0.75rem;">${m.lesson}</p></div><a href="${m.fileURL}" target="_blank"><button style="padding: 0.6rem 1.4rem; font-size:0.7rem;">OPEN</button></a>`;
-        d.appendChild(r);
-    });
-    refreshIcons();
-}
-
-const run = () => { if (isAppInitialized) return; isAppInitialized = true; initNavigation(); initAdmin(); initPortal(); refreshIcons(); };
-window.addEventListener('load', run); if (document.readyState === 'complete') run();
+let isAppInitialized = false;
+const run = () => { if (isAppInitialized) return; isAppInitialized = true; initNavigation(); initAdmin(); refreshIcons(); };
+window.addEventListener("load", run); if (document.readyState === "complete") run();

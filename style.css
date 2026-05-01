@@ -13,7 +13,7 @@
   --success: #10b981;
   --danger: #ef4444;
   --accent: #f59e0b;
-  --radius: 20px;
+  --radius: 16px;
   --sidebar-width: 250px;
 }
 
@@ -37,8 +37,8 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   position: relative;
-  font-size: 0.95rem;
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.5;
 }
 
 body::after {
@@ -389,16 +389,16 @@ nav {
 
 h1 {
   font-family: 'Outfit';
-  font-size: 2.2rem;
+  font-size: 1.75rem;
   font-weight: 800;
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
 }
 
 h2 {
   font-family: 'Outfit';
-  font-size: 1.4rem;
+  font-size: 1.2rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 button {
@@ -541,23 +541,32 @@ input:focus {
 }
 
 @media (max-width: 640px) {
+  body { font-size: 0.8rem; }
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.1rem; }
+  
   .marks-counter {
-    font-size: 3.5rem;
+    font-size: 3rem;
   }
 
   .reveal-card {
-    padding: 2rem;
+    padding: 1.5rem;
+    margin: 1rem;
+    width: 95%;
   }
 
   .grid-2 {
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   nav {
-    flex-direction: column;
-    gap: 1.25rem;
-    text-align: center;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 1.5rem 1rem;
+    gap: 1rem;
   }
+
+  .logo img { height: 35px !important; }
 }
 
 /* TABLE STYLING */

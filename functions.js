@@ -122,65 +122,85 @@ export async function releaseAllAndCalculate() {
   const allResults = [];
   allResultsSnapshot.forEach(doc => allResults.push({ id: doc.id, ...doc.data() }));
 
-  // Group by Exam Name (e.g. Pure Math) AND Student
-  const studentExamMap = {};
+  // Group by specific Exam ID and Batch (Class) to ensure total isolation
+  // This prevents previous exams or other classes from affecting the current ranking
+  const groups = {};
   allResults.forEach(r => {
-    const key = `${r.examName}_${r.studentId}`;
-    if (!studentExamMap[key]) studentExamMap[key] = { items: [], total: 0 };
-    studentExamMap[key].items.push(r);
-  });
-
-  // Calculate Final Aggregates
-  const aggregatedResults = [];
-  for (const key in studentExamMap) {
-    const group = studentExamMap[key];
-    const examName = group.items[0].examName;
-    const studentId = group.items[0].studentId;
-    
-    // Group logic: Part 1 (A+B) + Part 2 (A+B) / 2
-    let p1Sum = 0; let p2Sum = 0;
-    group.items.forEach(item => {
-      if (item.paperPart === 'Part 1') p1Sum += parseFloat(item.marks);
-      else if (item.paperPart === 'Part 2') p2Sum += parseFloat(item.marks);
-      else p1Sum += parseFloat(item.marks); // Treat "Full Paper" as P1 if logged alone
-    });
-
-    const finalMarks = (p1Sum + p2Sum) / (p2Sum > 0 ? 2 : 1); // Simple fallback
-    aggregatedResults.push({ studentId, examName, marks: finalMarks, sourceIds: group.items.map(i => i.id) });
-  }
-
-  // Calculate Ranks & Averages for the Final Figures
-  const examGroups = {};
-  aggregatedResults.forEach(r => {
-    if (!examGroups[r.examName]) examGroups[r.examName] = [];
-    examGroups[r.examName].push(r);
+    // Use examId + batch as the unique grouping key. Fallback to examName for legacy data.
+    const gid = `${r.examId || r.examName}_${r.batch || 'Unassigned'}`;
+    if (!groups[gid]) groups[gid] = [];
+    groups[gid].push(r);
   });
 
   let updateCount = 0;
-  for (const examName in examGroups) {
-    const results = examGroups[examName];
-    const avg = (results.reduce((s, r) => s + r.marks, 0) / results.length).toFixed(1);
-    const sorted = [...results].sort((a,b) => b.marks - a.marks);
+  for (const gid in groups) {
+    const results = groups[gid];
+    if (results.length === 0) continue;
+
+    // Calculate class average for this specific exam instance and batch
+    const totalMarks = results.reduce((s, r) => s + (parseFloat(r.marks) || 0), 0);
+    const avg = (totalMarks / results.length).toFixed(1);
+    
+    // Sort by marks descending for ranking
+    const sorted = [...results].sort((a,b) => (parseFloat(b.marks) || 0) - (parseFloat(a.marks) || 0));
 
     for (const r of sorted) {
-      const rank = sorted.findIndex(sr => sr.marks === r.marks) + 1;
-      const grade = getGrade(r.marks);
+      // Find rank (handling ties: students with same marks get the same rank)
+      const rank = sorted.findIndex(sr => parseFloat(sr.marks) === parseFloat(r.marks)) + 1;
       
-      // Update all source documents with these final stats
-      for (const docId of r.sourceIds) {
-        await updateDoc(doc(db, "results", docId), { 
-           grade, rank, classAverage: avg, isReleased: true, finalAggregate: r.marks 
-        });
-        updateCount++;
-      }
+      // Calculate grade based on percentage (multiply by 2 if it's a part usually out of 50)
+      const isPart = (r.paperPart !== 'Full Paper' || r.subSection !== 'None');
+      const percentageMarks = isPart ? r.marks * 2 : r.marks;
+      const grade = getGrade(percentageMarks);
+      
+      // Update the result document with its isolated stats
+      await updateDoc(doc(db, "results", r.id), { 
+         grade, 
+         rank, 
+         classAverage: avg, 
+         isReleased: true,
+         // Store marks as finalAggregate to maintain compatibility with student portal
+         finalAggregate: r.marks 
+      });
+      updateCount++;
 
       // Mark student for notification
       const sq = query(collection(db, "students"), where("studentId", "==", r.studentId));
       const ss = await getDocs(sq);
-      if (!ss.empty) await updateDoc(doc(db, "students", ss.docs[0].id), { hasNewResult: true });
+      if (!ss.empty) {
+        await updateDoc(doc(db, "students", ss.docs[0].id), { hasNewResult: true });
+      }
     }
   }
   return updateCount;
+}
+
+export async function rerankGroup(examId, batch) {
+  const q = query(
+    collection(db, "results"), 
+    where("examId", "==", examId), 
+    where("batch", "==", batch)
+  );
+  const snap = await getDocs(q);
+  const results = [];
+  snap.forEach(doc => {
+    const data = doc.data();
+    if (data.isReleased) results.push({ id: doc.id, ...data });
+  });
+
+  if (results.length === 0) return 0;
+
+  const totalMarks = results.reduce((s, r) => s + (parseFloat(r.marks) || 0), 0);
+  const avg = (totalMarks / results.length).toFixed(1);
+  const sorted = [...results].sort((a,b) => (parseFloat(b.marks) || 0) - (parseFloat(a.marks) || 0));
+
+  for (const r of sorted) {
+    const rank = sorted.findIndex(sr => parseFloat(sr.marks) === parseFloat(r.marks)) + 1;
+    const isPart = (r.paperPart !== 'Full Paper' || r.subSection !== 'None');
+    const grade = getGrade(isPart ? r.marks * 2 : r.marks);
+    await updateDoc(doc(db, "results", r.id), { grade, rank, classAverage: avg });
+  }
+  return results.length;
 }
 
 export async function deleteResult(docId) {
