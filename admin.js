@@ -1,4 +1,5 @@
 import { db } from './firebase.js';
+import { CONFIG } from './config.js';
 import { collection, onSnapshot, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js';
 import { 
   addStudent, deleteStudent, addResult, releaseAllAndCalculate, rerankGroup,
@@ -373,7 +374,7 @@ const initAdmin = () => {
     });
 
     // AI QUESTION GENERATION LOGIC
-    const GROQ_API_KEY = "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";
+    const GROQ_API_KEY = CONFIG.GROQ_API_KEY;
     let activeQuestionUnsubscribe = null;
     let lastGeneratedQA = null;
 

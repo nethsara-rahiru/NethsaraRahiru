@@ -1,0 +1,18 @@
+# Nethsara Rahiru Hub - Git Exclusion List
+
+# Sensitivity
+config.js
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+dist/
+.env
+
+# Workspace
+.vscode/
+.idea/
+.gemini/

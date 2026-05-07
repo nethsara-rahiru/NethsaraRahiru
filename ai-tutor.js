@@ -1,4 +1,6 @@
-const GROQ_API_KEY = "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";
+import { CONFIG } from './config.js';
+
+const GROQ_API_KEY = CONFIG.GROQ_API_KEY;
 const API_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 const chatForm = document.getElementById('ai-chat-form');
