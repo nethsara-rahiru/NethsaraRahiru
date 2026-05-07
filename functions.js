@@ -67,6 +67,50 @@ export async function getMaterials() {
   return materials;
 }
 
+// UNITS
+export async function addUnit(unitData) {
+  await addDoc(collection(db, "units"), { ...unitData, createdAt: serverTimestamp() });
+}
+export async function getUnits() {
+  const snapshot = await getDocs(query(collection(db, "units"), orderBy("createdAt", "desc")));
+  const units = [];
+  snapshot.forEach(doc => units.push({ id: doc.id, ...doc.data() }));
+  return units;
+}
+export async function deleteUnit(docId) {
+  await deleteDoc(doc(db, "units", docId));
+}
+
+// LEVELS
+export async function addLevel(levelData) {
+  await addDoc(collection(db, "levels"), { ...levelData, createdAt: serverTimestamp() });
+}
+export async function getLevels(unitId) {
+  const q = query(collection(db, "levels"), where("unitId", "==", unitId), orderBy("createdAt", "asc"));
+  const snapshot = await getDocs(q);
+  const levels = [];
+  snapshot.forEach(doc => levels.push({ id: doc.id, ...doc.data() }));
+  return levels;
+}
+export async function deleteLevel(docId) {
+  await deleteDoc(doc(db, "levels", docId));
+}
+
+// QUESTIONS
+export async function addQuestion(questionData) {
+  await addDoc(collection(db, "questions"), { ...questionData, createdAt: serverTimestamp() });
+}
+export async function getQuestions(levelId) {
+  const q = query(collection(db, "questions"), where("levelId", "==", levelId), orderBy("createdAt", "asc"));
+  const snapshot = await getDocs(q);
+  const questions = [];
+  snapshot.forEach(doc => questions.push({ id: doc.id, ...doc.data() }));
+  return questions;
+}
+export async function deleteQuestion(docId) {
+  await deleteDoc(doc(db, "questions", docId));
+}
+
 // EXAMS
 export async function addExam(examData) {
   await addDoc(collection(db, "exams"), { ...examData, createdAt: serverTimestamp() });

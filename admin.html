@@ -82,6 +82,10 @@
                     <i data-lucide="library"></i>
                     <span>Materials</span>
                 </div>
+                <div class="nav-item" data-tab="units">
+                    <i data-lucide="layers"></i>
+                    <span>Units</span>
+                </div>
                 
                 <div style="margin-top: auto; padding-top: 2rem;">
                     <button id="admin-logout-btn" style="width:100%; background:rgba(239,68,68,0.1); color:var(--danger); border:1px solid rgba(239,68,68,0.2);">
@@ -288,7 +292,9 @@
                       <p style="color:var(--text-muted); margin-bottom: 2rem; font-weight:600; font-size: 0.85rem;">PDF Study files for student dashboard access.</p>
                       <form id="add-material-form">
                           <input type="text" id="mat-title" placeholder="Unique File ID">
-                          <input type="text" id="mat-lesson" placeholder="Lesson Category">
+                          <select id="mat-unit-select" style="margin-bottom: 1.2rem;">
+                            <option value="">Select Unit...</option>
+                          </select>
                           <div style="background: rgba(106, 215, 255, 0.03); padding: 3rem; border-radius: 20px; border: 2px dashed var(--card-border); text-align: center; margin-bottom: 2rem;">
                               <input type="file" id="mat-file" style="margin: 0; padding: 0; background: transparent; border: none; font-size: 0.9rem; color: var(--text-muted); width: auto;">
                           </div>
@@ -299,6 +305,73 @@
                     <h2 style="font-size: 1.4rem; margin-bottom: 1.5rem;">Current Assets</h2>
                     <div id="shared-materials-list" style="max-height: 400px; overflow-y: auto;"></div>
                   </div>
+                </div>
+            </section>
+
+            <!-- Tab: Units Management -->
+            <section id="tab-units" class="tab-content">
+                <div class="grid-2" style="gap: 2rem;">
+                  <div class="card" style="border-color: var(--primary);">
+                      <h2 style="font-size: 1.5rem;">Define Study Unit</h2>
+                      <p style="color:var(--text-muted); margin-bottom: 2rem; font-weight: 600; font-size: 0.85rem;">Create units to organize your interactive lessons.</p>
+                      <form id="add-unit-form">
+                          <input type="text" id="unit-name" placeholder="Unit Name (e.g. Differentiation)">
+                          <input type="text" id="unit-description" placeholder="Short description or focus area">
+                          <button type="submit" style="width: 100%; height: 65px;">REGISTER UNIT</button>
+                      </form>
+                  </div>
+                  <div class="card">
+                    <h2 style="font-size: 1.4rem; margin-bottom: 1.5rem;">Unit Registry</h2>
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead>
+                                <tr style="text-align: left; border-bottom: 1px solid var(--card-border);">
+                                    <th style="padding: 1rem; color: var(--text-muted); font-size: 0.7rem; text-transform:uppercase;">UNIT NAME</th>
+                                    <th style="padding: 1rem; color: var(--text-muted); font-size: 0.7rem; text-transform:uppercase;">DESCRIPTION</th>
+                                    <th style="padding: 1rem; color: var(--text-muted); font-size: 0.7rem; text-transform:uppercase; text-align:right;">ACTION</th>
+                                </tr>
+                            </thead>
+                            <tbody id="units-table-body">
+                                <!-- Populated dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Unit Details Panel (Visible on Row Click) -->
+                <div id="unit-details-panel" class="card" style="display:none; margin-top: 2rem; border-color: var(--primary);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
+                        <div>
+                            <h2 id="detail-unit-name" style="margin:0; font-size:1.6rem;">Unit Name</h2>
+                            <p id="detail-unit-desc" style="color:var(--text-muted); font-size:0.85rem; margin-top:5px;">Unit Description</p>
+                        </div>
+                        <button id="close-unit-details" style="background:rgba(255,255,255,0.05); color:white; padding:0.6rem 1rem;">CLOSE</button>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1.5fr; gap: 2rem;">
+                        <!-- Level Creator -->
+                        <div style="border-right: 1px solid var(--card-border); padding-right: 2rem;">
+                            <h3 style="font-size:0.9rem; color:var(--primary); margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:1px;">Add New Level</h3>
+                            <form id="add-level-form">
+                                <input type="hidden" id="level-unit-id">
+                                <input type="text" id="level-name" placeholder="Level Name (e.g. Phase 01)">
+                                <button type="submit" style="width: 100%; height: 55px; font-size: 0.75rem;">CREATE LEVEL</button>
+                            </form>
+                            
+                            <h3 style="font-size:0.9rem; color:var(--primary); margin: 2rem 0 1rem 0; text-transform:uppercase; letter-spacing:1px;">Current Levels</h3>
+                            <div id="unit-levels-list" style="display:grid; gap:8px;">
+                                <!-- Levels for selected unit -->
+                            </div>
+                        </div>
+
+                        <!-- Content Structure -->
+                        <div>
+                            <h3 style="font-size:0.9rem; color:var(--primary); margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:1px;">Assigned Content</h3>
+                            <div id="unit-structure-list" style="display:grid; gap:10px;">
+                                <!-- Materials list for selected unit -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
 
@@ -338,6 +411,48 @@
                     <button type="button" id="cancel-exam-edit" style="flex: 1; background:rgba(255,255,255,0.02); color:#fff; border:1px solid var(--card-border); height: 65px;">CLOSE</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Level Questions Management Modal -->
+    <div id="level-questions-overlay" class="overlay-full" style="display: none; z-index: 3100;">
+        <div class="card" style="max-width: 800px; width: 95%; background: #051d34; border-color: #7820d0; max-height: 90vh; overflow-y: auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
+                <div>
+                    <h2 id="modal-level-name" style="margin:0; font-size:1.6rem; color: #7820d0;">AI Question Lab</h2>
+                    <p style="color:var(--text-muted); font-size:0.85rem; margin-top:5px;">Generate and manage AI-driven assessments for this level.</p>
+                </div>
+                <button id="close-questions-modal" style="background:rgba(255,255,255,0.05); color:white; padding:0.6rem 1rem;">CLOSE</button>
+            </div>
+
+            <div class="grid-2" style="gap: 2rem;">
+                <!-- Question Creator -->
+                <div>
+                    <h3 style="font-size:0.9rem; color:var(--primary); margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:1px;">Generate New Question</h3>
+                    <form id="add-question-form">
+                        <input type="hidden" id="question-level-id">
+                        <textarea id="question-prompt" placeholder="Describe the question topic... (e.g. Simple quadratic equations with integer roots)" style="min-height: 120px; font-size: 0.9rem;"></textarea>
+                        <button type="submit" id="gen-q-btn" style="width: 100%; height: 60px; background: linear-gradient(135deg, #7820d0, #4c1eaf); color:white; border:none;">
+                            GENERATE Q&A WITH AI
+                        </button>
+                    </form>
+
+                    <div id="q-generation-preview" style="display:none; margin-top: 2rem; background: rgba(120, 32, 208, 0.05); padding: 1.5rem; border-radius: 16px; border: 1px solid rgba(120, 32, 208, 0.2);">
+                        <h4 style="font-size:0.7rem; color:var(--primary); text-transform:uppercase; margin-bottom:10px;">AI Preview</h4>
+                        <div id="preview-q" style="color:white; font-weight:700; margin-bottom:15px; font-size:0.9rem;"></div>
+                        <div id="preview-a" style="color:var(--text-muted); font-size:0.8rem; padding-top:10px; border-top:1px solid rgba(255,255,255,0.1);"></div>
+                        <button id="save-gen-q" style="margin-top: 1.5rem; width: 100%; background: var(--success); color: white;">SAVE TO LEVEL</button>
+                    </div>
+                </div>
+
+                <!-- Existing Questions -->
+                <div>
+                    <h3 style="font-size:0.9rem; color:var(--primary); margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:1px;">Active Assessments</h3>
+                    <div id="level-questions-list" style="display:grid; gap:12px;">
+                        <!-- Questions for selected level -->
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

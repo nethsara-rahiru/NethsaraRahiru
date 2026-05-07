@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tutor Lab | Nethsara Rahiru</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            height: 100vh;
+            overflow: hidden;
+            background: #051d34;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lab-header {
+            padding: 1.5rem 3rem;
+            background: rgba(8, 51, 91, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .lab-container {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .lab-side {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem;
+            position: relative;
+        }
+
+        .lab-side.input-side {
+            background: rgba(255,255,255,0.01);
+            border-right: 1px solid var(--card-border);
+        }
+
+        .lab-side.output-side {
+            background: rgba(0,0,0,0.2);
+        }
+
+        .side-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            resize: none;
+            padding: 1rem;
+            outline: none;
+        }
+
+        textarea::placeholder {
+            color: rgba(255,255,255,0.1);
+        }
+
+        .output-content {
+            flex: 1;
+            color: rgba(255,255,255,0.9);
+            font-size: 1.1rem;
+            line-height: 1.8;
+            padding: 1rem;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .action-bar {
+            position: absolute;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-run {
+            background: linear-gradient(135deg, #7820d0, #4c1eaf);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 12px;
+            font-weight: 800;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 30px rgba(120, 32, 208, 0.3);
+            transition: 0.3s;
+        }
+
+        .btn-run:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(120, 32, 208, 0.5);
+        }
+
+        .btn-run:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading-dots::after {
+            content: '...';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+        }
+
+        @media (max-width: 900px) {
+            .lab-container {
+                flex-direction: column;
+            }
+            .lab-side.input-side {
+                border-right: none;
+                border-bottom: 1px solid var(--card-border);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="lab-header">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="background: var(--primary); color: var(--secondary); padding: 8px; border-radius: 10px;">
+                <i data-lucide="brain-circuit" style="width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <h1 style="font-size: 1.2rem; margin: 0; color: white;">AI Tutor Lab</h1>
+                <p style="font-size: 0.65rem; color: var(--text-muted); margin: 0; text-transform: uppercase; font-weight: 800; letter-spacing: 1px;">Groq Experimental Environment</p>
+            </div>
+        </div>
+        <a href="admin.html" style="color: var(--text-muted); font-size: 0.8rem; text-decoration: none; font-weight: 700;">BACK TO ADMIN</a>
+    </header>
+
+    <div class="lab-container">
+        <div class="lab-side input-side">
+            <div class="side-label">
+                <i data-lucide="terminal" style="width: 14px;"></i> Prompt Input
+            </div>
+            <textarea id="prompt-input" placeholder="Type your mathematical prompt or question here..."></textarea>
+            <div class="action-bar">
+                <button id="run-btn" class="btn-run">
+                    <i data-lucide="play" style="width: 18px;"></i> EXECUTE PROMPT
+                </button>
+            </div>
+        </div>
+
+        <div class="lab-side output-side" style="padding: 0;">
+            <div class="side-label" style="padding: 2rem 2rem 0 2rem;">
+                <i data-lucide="eye" style="width: 14px;"></i> Live Preview
+            </div>
+            <iframe id="preview-frame" style="flex: 1; width: 100%; border: none; background: white;"></iframe>
+        </div>
+    </div>
+
+    <script type="module">
+        const GROQ_API_KEY = "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";
+        const API_URL = "https://api.groq.com/openai/v1/chat/completions";
+
+        const input = document.getElementById('prompt-input');
+        const previewFrame = document.getElementById('preview-frame');
+        const runBtn = document.getElementById('run-btn');
+
+        lucide.createIcons();
+
+        runBtn.onclick = async () => {
+            const prompt = input.value.trim();
+            if (!prompt) return;
+
+            runBtn.disabled = true;
+            runBtn.innerHTML = `<i data-lucide="loader-2" class="spin" style="width: 18px;"></i> <span class="loading-dots">GENERATING</span>`;
+            
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${GROQ_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: "llama-3.3-70b-versatile",
+                        messages: [
+                            { role: "system", content: "You are an expert web developer. When asked for code, provide ONLY the full HTML code without any explanations or markdown blocks. Ensure the code is self-contained with CSS and JS." },
+                            { role: "user", content: `${prompt}. Only give me the full HTML code.` }
+                        ],
+                        temperature: 0.3
+                    })
+                });
+
+                const data = await response.json();
+                let html = data.choices[0].message.content;
+                
+                // Strip markdown code blocks if AI included them
+                html = html.replace(/```html/g, '').replace(/```/g, '').trim();
+
+                const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+                doc.open();
+                doc.write(html);
+                doc.close();
+
+            } catch (error) {
+                console.error(error);
+                alert("Failed to generate preview.");
+            } finally {
+                runBtn.disabled = false;
+                runBtn.innerHTML = `<i data-lucide="play" style="width: 18px;"></i> EXECUTE PROMPT`;
+                lucide.createIcons();
+            }
+        };
+
+        // Command + Enter to run
+        input.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                runBtn.click();
+            }
+        });
+    </script>
+</body>
+</html>

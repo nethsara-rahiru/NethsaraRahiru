@@ -3,12 +3,15 @@ import { collection, onSnapshot, query, where, orderBy } from 'https://www.gstat
 import { 
   addStudent, deleteStudent, addResult, releaseAllAndCalculate, rerankGroup,
   uploadMaterialFile, addMaterial, addExam, deleteExam, updateExam, deleteResult, unpublishResult,
-  loginAdmin, logoutAdmin, subscribeToAuth
+  loginAdmin, logoutAdmin, subscribeToAuth, addUnit, deleteUnit, addLevel, deleteLevel,
+  addQuestion, deleteQuestion
 } from './functions.js';
 import { refreshIcons, initNavigation } from './ui.js';
 
 let examsList = [];
 let studentsList = [];
+let materialsList = [];
+let unitsList = [];
 
 const initAdmin = () => {
     const adminOverlay = document.getElementById('admin-login-overlay');
@@ -222,6 +225,268 @@ const initAdmin = () => {
             alert('Encountered an error updating the exam.');
         }
     });
+
+    // UNIT MANAGEMENT LOGIC
+    document.getElementById('add-unit-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('unit-name').value.trim();
+        const description = document.getElementById('unit-description').value.trim();
+        if (!name) { alert('Unit Name is required.'); return; }
+        const btn = e.target.querySelector('button[type="submit"]');
+        const oldText = btn.innerText; btn.disabled = true; btn.innerText = 'REGISTERING...';
+        try {
+            await addUnit({ name, description });
+            e.target.reset();
+            alert('Unit successfully registered.');
+        } catch (err) {
+            console.error(err);
+            alert('Failed to register unit.');
+        } finally { btn.disabled = false; btn.innerText = oldText; }
+    });
+
+    onSnapshot(query(collection(db, "units"), orderBy("createdAt", "desc")), snap => {
+        const tableBody = document.getElementById('units-table-body');
+        const unitSelect = document.getElementById('mat-unit-select');
+        if (!tableBody || !unitSelect) return;
+        tableBody.innerHTML = '';
+        unitsList = [];
+        const selectHTML = ['<option value="">Select Unit...</option>'];
+        snap.forEach(doc => {
+            const u = { id: doc.id, ...doc.data() };
+            unitsList.push(u);
+            selectHTML.push(`<option value="${u.name}">${u.name}</option>`);
+            
+            const tr = document.createElement('tr');
+            tr.style.cursor = 'pointer';
+            tr.style.borderBottom = '1px solid rgba(255,255,255,0.03)';
+            tr.innerHTML = `
+                <td style="padding:1.2rem 1rem;"><strong style="color:white;">${u.name}</strong></td>
+                <td style="padding:1rem; opacity:0.6; font-size:0.8rem;">${u.description || 'No description'}</td>
+                <td style="text-align:right; padding:1rem;"><button class="del-unit-btn" data-id="${u.id}" style="padding:4px 8px; font-size:10px; background:transparent; color:var(--danger);">REMOVE</button></td>
+            `;
+            tr.onclick = (e) => {
+                if(e.target.tagName !== 'BUTTON') showUnitStructure(u);
+            };
+            tableBody.appendChild(tr);
+        });
+        unitSelect.innerHTML = selectHTML.join('');
+        document.querySelectorAll('.del-unit-btn').forEach(btn => btn.onclick = async (e) => { e.stopPropagation(); if(confirm('Permanently remove this unit?')) await deleteUnit(btn.getAttribute('data-id')); });
+        refreshIcons();
+    });
+
+    // LEVEL MANAGEMENT LOGIC
+    let currentActiveUnitId = null;
+    let activeLevelUnsubscribe = null;
+
+    document.getElementById('add-level-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const unitId = document.getElementById('level-unit-id').value;
+        const name = document.getElementById('level-name').value.trim();
+        if (!unitId || !name) { alert('Level Name is required.'); return; }
+        const btn = e.target.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.innerText = 'CREATING...';
+        try {
+            await addLevel({ unitId, name });
+            e.target.reset();
+            document.getElementById('level-unit-id').value = unitId; // keep context
+        } catch (err) {
+            console.error(err);
+            alert('Failed to create level.');
+        } finally { btn.disabled = false; btn.innerText = 'CREATE LEVEL'; }
+    });
+
+    const showUnitStructure = (unit) => {
+        const panel = document.getElementById('unit-details-panel');
+        const nameEl = document.getElementById('detail-unit-name');
+        const descEl = document.getElementById('detail-unit-desc');
+        const listEl = document.getElementById('unit-structure-list');
+        const levelIdInput = document.getElementById('level-unit-id');
+        const levelsContainer = document.getElementById('unit-levels-list');
+        
+        currentActiveUnitId = unit.id;
+        levelIdInput.value = unit.id;
+        nameEl.innerText = unit.name;
+        descEl.innerText = unit.description || 'No description provided for this unit.';
+        
+        // Listen to levels for this unit
+        if (activeLevelUnsubscribe) activeLevelUnsubscribe();
+        activeLevelUnsubscribe = onSnapshot(query(collection(db, "levels"), where("unitId", "==", unit.id)), snap => {
+            levelsContainer.innerHTML = snap.empty ? '<p style="color:var(--text-muted); font-size:0.8rem; padding:1rem 0;">No levels defined.</p>' : '';
+            const levels = [];
+            snap.forEach(doc => levels.push({ id: doc.id, ...doc.data() }));
+            levels.sort((a,b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0));
+
+            levels.forEach(l => {
+                const div = document.createElement('div');
+                div.style.padding = '0.8rem 1rem';
+                div.style.background = 'rgba(106, 215, 255, 0.03)';
+                div.style.border = '1px solid var(--card-border)';
+                div.style.borderRadius = '10px';
+                div.style.display = 'flex';
+                div.style.justifyContent = 'space-between';
+                div.style.alignItems = 'center';
+                div.innerHTML = `
+                    <span style="font-size:0.85rem; font-weight:600; color:white;">${l.name}</span>
+                    <div style="display:flex; gap:8px;">
+                        <button class="manage-questions-btn" data-id="${l.id}" data-name="${l.name}" style="padding:4px 8px; font-size:9px; background:rgba(120,32,208,0.1); color:#7820d0; border:1px solid rgba(120,32,208,0.2); cursor:pointer;">QUESTIONS</button>
+                        <button class="del-level-btn" data-id="${l.id}" style="padding:4px 8px; font-size:9px; background:transparent; color:var(--danger); border:none; cursor:pointer;">REMOVE</button>
+                    </div>
+                `;
+                levelsContainer.appendChild(div);
+            });
+            document.querySelectorAll('.del-level-btn').forEach(btn => btn.onclick = async () => { if(confirm('Delete this level?')) await deleteLevel(btn.getAttribute('data-id')); });
+            document.querySelectorAll('.manage-questions-btn').forEach(btn => btn.onclick = () => {
+                openQuestionsModal(btn.getAttribute('data-id'), btn.getAttribute('data-name'));
+            });
+        });
+
+        // Filter materials for this unit
+        const related = materialsList.filter(m => m.lesson === unit.name);
+        listEl.innerHTML = related.length ? '' : '<p style="color:var(--text-muted); padding:1rem;">No materials linked to this unit yet.</p>';
+        
+        related.forEach(m => {
+            const d = document.createElement('div');
+            d.style.padding = '1.2rem';
+            d.style.background = 'rgba(255,255,255,0.03)';
+            d.style.borderRadius = '12px';
+            d.style.display = 'flex';
+            d.style.justifyContent = 'space-between';
+            d.style.alignItems = 'center';
+            d.innerHTML = `
+                <div>
+                    <strong style="color:white; display:block;">${m.title}</strong>
+                    <small style="opacity:0.5; font-size:0.7rem;">FILE ATTACHED</small>
+                </div>
+                <a href="${m.fileURL}" target="_blank" style="color:var(--primary); font-size:0.7rem; font-weight:800; text-decoration:none;">VIEW ASSET</a>
+            `;
+            listEl.appendChild(d);
+        });
+        
+        panel.style.display = 'block';
+        panel.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    document.getElementById('close-unit-details')?.addEventListener('click', () => {
+        document.getElementById('unit-details-panel').style.display = 'none';
+        if (activeLevelUnsubscribe) activeLevelUnsubscribe();
+        activeLevelUnsubscribe = null;
+    });
+
+    // AI QUESTION GENERATION LOGIC
+    const GROQ_API_KEY = "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";
+    let activeQuestionUnsubscribe = null;
+    let lastGeneratedQA = null;
+
+    const openQuestionsModal = (levelId, levelName) => {
+        const modal = document.getElementById('level-questions-overlay');
+        document.getElementById('modal-level-name').innerText = `AI Lab: ${levelName}`;
+        document.getElementById('question-level-id').value = levelId;
+        document.getElementById('q-generation-preview').style.display = 'none';
+        document.getElementById('question-prompt').value = '';
+        
+        if (activeQuestionUnsubscribe) activeQuestionUnsubscribe();
+        activeQuestionUnsubscribe = onSnapshot(query(collection(db, "questions"), where("levelId", "==", levelId)), snap => {
+            const list = document.getElementById('level-questions-list');
+            list.innerHTML = snap.empty ? '<p style="color:var(--text-muted); font-size:0.8rem; padding:2rem 0; text-align:center;">No AI questions for this level.</p>' : '';
+            const questions = [];
+            snap.forEach(doc => questions.push({ id: doc.id, ...doc.data() }));
+            questions.sort((a,b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0));
+
+            questions.forEach(q => {
+                const div = document.createElement('div');
+                div.className = 'card';
+                div.style.padding = '1.2rem';
+                div.style.background = 'rgba(255,255,255,0.02)';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                        <span style="font-size:0.6rem; color:var(--primary); font-weight:800; text-transform:uppercase;">Question</span>
+                        <button class="del-q-btn" data-id="${q.id}" style="padding:4px; background:transparent; color:var(--danger); border:none; cursor:pointer;"><i data-lucide="trash-2" style="width:14px;"></i></button>
+                    </div>
+                    <div style="font-size:0.85rem; color:white; font-weight:600; margin-bottom:10px;">${q.question}</div>
+                    <div style="font-size:0.75rem; color:var(--success); font-weight:700;">A: ${q.answer}</div>
+                `;
+                list.appendChild(div);
+            });
+            document.querySelectorAll('.del-q-btn').forEach(btn => btn.onclick = async () => { if(confirm('Discard this question?')) await deleteQuestion(btn.getAttribute('data-id')); });
+            refreshIcons();
+        });
+
+        modal.style.display = 'flex';
+    };
+
+    document.getElementById('close-questions-modal').onclick = () => {
+        document.getElementById('level-questions-overlay').style.display = 'none';
+        if (activeQuestionUnsubscribe) activeQuestionUnsubscribe();
+    };
+
+    document.getElementById('add-question-form')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prompt = document.getElementById('question-prompt').value.trim();
+        const btn = document.getElementById('gen-q-btn');
+        if (!prompt) { alert('Please enter a topic prompt.'); return; }
+
+        btn.disabled = true; btn.innerText = 'AI IS THINKING...';
+        
+        try {
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${GROQ_API_KEY}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: "llama-3.3-70b-versatile",
+                    messages: [
+                        { role: "system", content: "You are a mathematics question generator. Generate a single clear question and its short, accurate answer based on the prompt. Output format: Question: [question] | Answer: [answer]. Keep the answer concise." },
+                        { role: "user", content: `Generate a math question for: ${prompt}` }
+                    ],
+                    temperature: 0.7
+                })
+            });
+
+            const data = await response.json();
+            const aiResult = data.choices[0].message.content;
+            
+            // Parse "Question: ... | Answer: ..."
+            const parts = aiResult.split('|');
+            const qText = parts[0]?.replace('Question:', '').trim();
+            const aText = parts[1]?.replace('Answer:', '').trim();
+
+            if (qText && aText) {
+                lastGeneratedQA = { question: qText, answer: aText };
+                document.getElementById('preview-q').innerText = qText;
+                document.getElementById('preview-a').innerText = `Answer: ${aText}`;
+                document.getElementById('q-generation-preview').style.display = 'block';
+            } else {
+                alert('AI generated an unexpected format. Please try again.');
+            }
+
+        } catch (err) {
+            console.error(err);
+            alert('AI Generation failed.');
+        } finally {
+            btn.disabled = false; btn.innerText = 'GENERATE Q&A WITH AI';
+        }
+    });
+
+    document.getElementById('save-gen-q').onclick = async () => {
+        const levelId = document.getElementById('question-level-id').value;
+        if (!lastGeneratedQA || !levelId) return;
+
+        const btn = document.getElementById('save-gen-q');
+        btn.disabled = true; btn.innerText = 'SAVING...';
+
+        try {
+            await addQuestion({ levelId, ...lastGeneratedQA });
+            document.getElementById('q-generation-preview').style.display = 'none';
+            document.getElementById('question-prompt').value = '';
+        } catch (err) {
+            console.error(err);
+            alert('Failed to save question.');
+        } finally {
+            btn.disabled = false; btn.innerText = 'SAVE TO LEVEL';
+        }
+    };
 
     // BULK MARKS ENTRY ENGINE
     const batchSel = document.getElementById('bulk-result-batch');
@@ -463,8 +728,10 @@ const initAdmin = () => {
 
     onSnapshot(query(collection(db, "materials"), orderBy("createdAt", "desc")), snapshot => {
         const list = document.getElementById('shared-materials-list'); if (!list) return; list.innerHTML = '';
+        materialsList = [];
         snapshot.forEach(doc => {
             const m = doc.data();
+            materialsList.push(m);
             const d = document.createElement('div'); d.style.padding = '0.75rem 0'; d.style.display='flex'; d.style.justifyContent='space-between'; d.style.borderBottom='1px solid var(--card-border)';
             d.innerHTML = `<div><strong style="color:white; font-size:0.9rem;">${m.title}</strong><small style="display:block; opacity:0.6; font-size:0.75rem;">${m.lesson}</small></div><i data-lucide="file-check" style="color:var(--primary); width:16px;"></i>`;
             list.appendChild(d);
@@ -475,10 +742,10 @@ const initAdmin = () => {
     document.getElementById('add-material-form')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const title = document.getElementById('mat-title').value;
-        const lesson = document.getElementById('mat-lesson').value;
+        const lesson = document.getElementById('mat-unit-select').value;
         const fileInput = document.getElementById('mat-file');
         
-        if (!title || !lesson || !fileInput.files[0]) { alert('Title, Lesson, and a File are required.'); return; }
+        if (!title || !lesson || !fileInput.files[0]) { alert('Title, Unit selection, and a File are required.'); return; }
 
         const btn = document.getElementById('upload-btn');
         const initialText = btn.innerText;
